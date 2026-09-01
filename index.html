@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>🔤 AIワードパズル Pro</title>
   <style>
-    /* iPhoneのあらゆる自動操作（ズーム・スクロール）を禁止 */
     * { 
       box-sizing: border-box; 
       touch-action: none; 
@@ -17,8 +16,7 @@
       background: #090d16; color: white; 
       margin: 0; padding: 0; 
       height: 100dvh; display: flex; flex-direction: column; 
-      overflow: hidden; 
-      overscroll-behavior: none;
+      overflow: hidden; overscroll-behavior: none;
     }
 
     /* ヘッダー */
@@ -35,63 +33,42 @@
     .score-val { font-size: 18px; font-weight: bold; color: #38bdf8; }
 
     /* 情報エリア */
-    .info-area {
-      display: flex; gap: 8px; padding: 8px; background: #0f172a; height: 85px;
-    }
+    .info-area { display: flex; gap: 8px; padding: 8px; background: #0f172a; height: 85px; }
     .log-box { 
       flex: 1; background: #1e293b; border-radius: 8px; padding: 6px; 
-      font-size: 11px; overflow-y: auto; border: 1px solid #334155;
-      touch-action: pan-y;
+      font-size: 11px; overflow-y: auto; border: 1px solid #334155; touch-action: pan-y;
     }
-    .photo-frame { 
-      width: 68px; height: 68px; background: #000; border-radius: 8px; 
-      border: 1px solid #38bdf8; overflow: hidden; flex-shrink: 0;
-    }
+    .photo-frame { width: 68px; height: 68px; background: #000; border-radius: 8px; border: 1px solid #38bdf8; overflow: hidden; flex-shrink: 0; }
     #wordImage { width: 100%; height: 100%; object-fit: cover; }
 
     /* ゲーム盤面 */
-    .game-main { 
-      flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
-      padding: 5px; position: relative;
-    }
-    #gameCanvas { 
-      background: #000; border: 2px solid #38bdf8; border-radius: 8px;
-      max-height: 100%; width: auto; aspect-ratio: 6 / 10;
-    }
-    #statusMsg { font-size: 12px; font-weight: bold; height: 18px; margin-top: 5px; }
+    .game-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5px; position: relative; }
+    #gameCanvas { background: #000; border: 2px solid #38bdf8; border-radius: 8px; max-height: 100%; width: auto; aspect-ratio: 6 / 10; }
+    #statusMsg { font-size: 12px; font-weight: bold; height: 18px; margin-top: 5px; text-align: center; width: 100%; }
 
-    /* コントローラー：マークのズレを徹底修正 */
+    /* 操作ボタン */
     .controls { 
-      padding: 10px 15px calc(10px + env(safe-area-inset-bottom)); 
-      background: #1e293b; 
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-      border-top: 1px solid #334155;
+      padding: 10px 15px calc(15px + env(safe-area-inset-bottom)); 
+      background: #1e293b; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border-top: 1px solid #334155;
     }
     .btn { 
-      height: 60px; background: #334155; color: white; border: none; 
-      border-radius: 12px; font-size: 24px; font-weight: bold; 
-      box-shadow: 0 4px 0 #000;
-      /* Flexboxで中身を真ん中に。paddingやline-heightをリセット */
-      display: flex; justify-content: center; align-items: center;
-      padding: 0; line-height: 1;
+      height: 60px; background: #334155; color: white; border: none; border-radius: 12px; font-size: 24px; font-weight: bold; 
+      box-shadow: 0 4px 0 #000; display: flex; justify-content: center; align-items: center; padding: 0; line-height: 1;
     }
     .btn:active { transform: translateY(2px); box-shadow: none; background: #475569; }
-    .btn-judge { 
-      grid-column: span 3; background: #e11d48; font-size: 16px; 
-      box-shadow: 0 4px 0 #9f1239; height: 50px;
-    }
+    .btn-judge { grid-column: span 3; background: #e11d48; font-size: 16px; box-shadow: 0 4px 0 #9f1239; height: 50px; }
   </style>
 </head>
 <body oncontextmenu="return false;">
 
 <div class="header">
-  <input type="password" id="apiKey" placeholder="Gemini Key" />
-  <button onclick="toggleBGM()" id="bgmToggle" style="background:#334155; color:white; border:none; padding:8px; border-radius:6px; font-size:10px;">🎵 BGM</button>
+  <input type="password" id="apiKey" placeholder="Gemini API Key" />
+  <button onclick="toggleBGM()" id="bgmToggle" style="background:#e11d48; color:white; border:none; padding:8px; border-radius:6px; font-size:10px;">🎵 BGM: ON</button>
   <div class="score-area"><div class="score-val" id="scoreDisplay">0</div></div>
 </div>
 
 <div class="info-area">
-  <div class="log-box" id="logBox"><div style="color: #64748b;">判定ボタンを押して言葉を消そう！</div></div>
+  <div class="log-box" id="logBox"><div style="color: #64748b;">画面をタップしてスタート！</div></div>
   <div class="photo-frame"><img id="wordImage" style="display:none;"></div>
 </div>
 
@@ -108,7 +85,7 @@
 </div>
 
 <script>
-  // 🚫 iPhoneのダブルタップズームをJavaScriptで強制禁止
+  // 🚫 iPhoneズーム防止
   let lastTouchEnd = 0;
   document.addEventListener('touchend', (e) => {
     const now = (new Date()).getTime();
@@ -119,11 +96,22 @@
   const COLS = 6, ROWS = 10, BLOCK_SIZE = 40;
   const chars = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん";
   let board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-  let currentPiece = null, score = 0, audioCtx = null, isBgmOn = false, bgmInterval = null;
+  let currentPiece = null, score = 0, audioCtx = null, isBgmOn = true, bgmInterval = null;
   const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
   const apiKeyInput = document.getElementById('apiKey');
   apiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
   apiKeyInput.addEventListener('change', () => localStorage.setItem('gemini_api_key', apiKeyInput.value.trim()));
+
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  // 初回タップでBGM開始
+  window.addEventListener('touchstart', function() {
+    initAudio();
+    if (isBgmOn && !bgmInterval) startBGM();
+  }, { once: true });
 
   function spawnPiece() {
     currentPiece = { x: 2, y: 0, char: chars[Math.floor(Math.random() * chars.length)] };
@@ -156,20 +144,20 @@
   }
 
   function canMove(nx, ny) { return nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !board[ny][nx]; }
-  function handleMove(e, func) { e.preventDefault(); func(); } // ズーム防止用
+  function handleMove(e, func) { e.preventDefault(); initAudio(); func(); }
   function moveLeft() { if (currentPiece && canMove(currentPiece.x - 1, currentPiece.y)) { currentPiece.x--; playSound('move'); draw(); } }
   function moveRight() { if (currentPiece && canMove(currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playSound('move'); draw(); } }
   function dropFast() { if (currentPiece) { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); playSound('move'); } }
 
+  // 🤖 AI判定ロジック（執念のリトライ版）
   async function checkWords() {
+    initAudio();
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) return alert("APIキーを入力してください");
-    
-    // 音声を即座に初期化（iPhone対策）
-    initAudio(); 
     const judgeBtn = document.getElementById('judgeBtn'), statusMsg = document.getElementById('statusMsg');
     judgeBtn.disabled = true;
 
+    // 文字列抽出
     let candidates = [];
     for (let r = 0; r < ROWS; r++) {
       let line = board[r].map(c => c || ' ').join('');
@@ -181,44 +169,76 @@
       line.split(' ').forEach(s => { if(s.length >= 2) candidates.push(s); });
     }
     candidates = [...new Set(candidates)];
-    if (candidates.length === 0) { judgeBtn.disabled = false; return; }
+    if (candidates.length === 0) {
+      playSound('fail');
+      statusMsg.textContent = "並んでいる文字がありません";
+      judgeBtn.disabled = false;
+      return;
+    }
 
     try {
-      statusMsg.style.color = "#38bdf8"; statusMsg.textContent = "AI判定中...";
+      statusMsg.style.color = "#38bdf8";
+      statusMsg.textContent = "AIモデルを探索中...";
+
+      // 1. 利用可能なモデルをスキャン
       const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const mData = await mRes.json();
-      const models = mData.models.filter(m => m.supportedGenerationMethods.includes("generateContent")).sort((a,b)=>b.name.localeCompare(a.name));
-      const targetModel = localStorage.getItem('last_word_model') || models[0].name;
+      if(!mRes.ok) throw new Error(mData.error?.message);
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `日本語判定。以下から意味の通じる単語のみ抽出しJSONで返せ。リスト: ${JSON.stringify(candidates)} 形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "Prompt"}]}` }] }],
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      });
+      let models = mData.models
+        .filter(m => m.supportedGenerationMethods.includes("generateContent"))
+        .sort((a, b) => b.name.localeCompare(a.name));
 
-      if (response.ok) {
-        const data = await response.json();
-        const result = JSON.parse(data.candidates[0].content.parts[0].text);
-        if (result.valid_words && result.valid_words.length > 0) {
-          playSound('success');
-          statusMsg.style.color = "#4ade80"; statusMsg.textContent = "単語を発見！";
-          result.valid_words.forEach(w => {
-            addLog(w.word, w.score, w.comment); score += w.score;
-            eraseWord(w.word); if (w.photo_en) showImage(w.photo_en);
+      // 前回成功したモデルを優先
+      const lastModel = localStorage.getItem('last_working_word_model');
+      if (lastModel) models = [{name: lastModel}, ...models.filter(m => m.name !== lastModel)];
+
+      const prompt = `日本語パズル判定。以下から実在する一般的な単語（2文字以上）を全て抽出しJSONで返せ。リスト: ${JSON.stringify(candidates)} 形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "English Prompt"}]}`;
+
+      let success = false;
+      for (const m of models) {
+        statusMsg.textContent = `試行中: ${m.name.split('/').pop()}...`;
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${m.name}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
           });
-          applyGravity(); updateScoreDisplay();
-          localStorage.setItem('last_word_model', targetModel);
-        } else {
-          // ★ 該当なし：ここで音を鳴らす
-          playSound('fail');
-          statusMsg.style.color = "#e11d48"; statusMsg.textContent = "該当なしでした...";
-          addLog("該当なし", 0, "有効な単語が見つかりませんでした。");
-        }
+
+          if (response.ok) {
+            const data = await response.json();
+            const text = data.candidates[0].content.parts[0].text;
+            const result = JSON.parse(text.replace(/```json|```/g, "").trim());
+            
+            if (result.valid_words && result.valid_words.length > 0) {
+              playSound('success');
+              statusMsg.style.color = "#4ade80";
+              statusMsg.textContent = `${result.valid_words.length}個の単語を消去！`;
+              result.valid_words.forEach(w => {
+                addLog(w.word, w.score, w.comment);
+                score += w.score;
+                eraseWord(w.word);
+                if (w.photo_en) showImage(w.photo_en);
+              });
+              applyGravity(); updateScoreDisplay();
+              localStorage.setItem('last_working_word_model', m.name);
+            } else {
+              playSound('fail');
+              statusMsg.style.color = "#e11d48";
+              statusMsg.textContent = "該当なしでした";
+              addLog("該当なし", 0, "有効な単語なし");
+            }
+            success = true;
+            break;
+          }
+        } catch (e) { console.warn(m.name + " failed", e); continue; }
       }
-    } catch (err) { console.error(err); }
+      if(!success) alert("すべてのAIモデルが制限中か、エラーです。時間を置いてください。");
+
+    } catch (err) { alert("通信エラー: " + err.message); }
     finally { judgeBtn.disabled = false; draw(); setTimeout(() => statusMsg.textContent = "", 3000); }
   }
 
@@ -255,13 +275,8 @@
   }
   function showImage(p) {
     const img = document.getElementById('wordImage');
-    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + ", cute 3D emoji") }?width=200&height=200&nologo=true`;
+    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + ", cute 3D render") }?width=200&height=200&nologo=true`;
     img.style.display = 'block';
-  }
-
-  function initAudio() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
   }
 
   function playSound(t) {
@@ -269,33 +284,36 @@
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    if(t==='move'){ o.frequency.value=400; g.gain.value=0.05; o.start(); o.stop(now+0.05); }
-    if(t==='fail'){ // 強力なブザー音
-      o.type = 'sawtooth';
-      o.frequency.setValueAtTime(140, now);
-      o.frequency.linearRampToValueAtTime(100, now + 0.4);
-      g.gain.setValueAtTime(0.2, now);
-      g.gain.linearRampToValueAtTime(0.01, now + 0.4);
-      o.start(); o.stop(now + 0.4);
+    if(t==='move'){ o.frequency.value=400; g.gain.value=0.03; o.start(); o.stop(now+0.05); }
+    if(t==='fail'){
+      o.type='sawtooth'; o.frequency.setValueAtTime(140, now); o.frequency.linearRampToValueAtTime(100, now + 0.3);
+      g.gain.setValueAtTime(0.1, now); g.gain.linearRampToValueAtTime(0.01, now + 0.3);
+      o.start(); o.stop(now + 0.3);
     }
     if(t==='success'){ [523,659,784].forEach((f,i)=>{
       const oo=audioCtx.createOscillator(), gg=audioCtx.createGain();
       oo.connect(gg); gg.connect(audioCtx.destination); oo.frequency.value=f;
-      gg.gain.setValueAtTime(0.1, now+i*0.1); oo.start(now+i*0.1); oo.stop(now+i*0.1+0.2);
+      gg.gain.setValueAtTime(0.05, now+i*0.1); oo.start(now+i*0.1); oo.stop(now+i*0.1+0.2);
     });}
   }
 
+  function startBGM() {
+    if (bgmInterval) return;
+    bgmInterval = setInterval(() => {
+      if(!isBgmOn) return;
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination); o.type='triangle';
+      o.frequency.value=[261,329,392][Math.floor(Math.random()*3)]; g.gain.value=0.01;
+      o.start(); o.stop(audioCtx.currentTime+0.2);
+    }, 300);
+  }
+
   function toggleBGM() {
-    initAudio(); isBgmOn = !isBgmOn;
+    initAudio();
+    isBgmOn = !isBgmOn;
     document.getElementById('bgmToggle').style.background = isBgmOn ? "#e11d48" : "#334155";
-    if(isBgmOn) {
-      bgmInterval = setInterval(() => {
-        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-        o.connect(g); g.connect(audioCtx.destination); o.type='triangle';
-        o.frequency.value=[261,329,392][Math.floor(Math.random()*3)]; g.gain.value=0.015;
-        o.start(); o.stop(audioCtx.currentTime+0.2);
-      }, 300);
-    } else clearInterval(bgmInterval);
+    document.getElementById('bgmToggle').textContent = isBgmOn ? "🎵 BGM: ON" : "🎵 BGM: OFF";
+    if(isBgmOn && !bgmInterval) startBGM();
   }
 
   spawnPiece();
