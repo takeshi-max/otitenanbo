@@ -1,5 +1,5 @@
 // --------------------------------------------------
-  // 🤖 Gemini APIによる単語判定 (縦・横対応版)
+  // 🤖 Gemini APIによる単語判定 (縦横判定＋自動モデルフォールバック対応)
   // --------------------------------------------------
   async function checkWords() {
     const apiKey = apiKeyInput.value.trim();
@@ -20,7 +20,7 @@
       if (str.length >= 2) candidates.push(str);
     }
 
-    // 2. 縦ラインの文字列抽出（上から下） ★追加部分★
+    // 2. 縦ラインの文字列抽出（上から下）
     for (let c = 0; c < COLS; c++) {
       let str = "";
       for (let r = 0; r < ROWS; r++) {
@@ -44,42 +44,66 @@
 JSON形式のみで出力:
 {"valid_words": [{"word": "単語", "score": 100, "comment": "一言解説", "photo_en": "English image prompt"}]}`;
 
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      });
+    // 試行するモデルの優先順位リスト（フォールバック用）
+    const modelsToTry = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ];
 
-      if (!res.ok) {
-        if (res.status === 400 || res.status === 403) throw new Error("APIキーが無効または間違っています。");
-        if (res.status === 429) throw new Error("利用制限（リクエスト過多）です。少し待ってからお試しください。");
-        throw new Error(`通信エラーが発生しました (コード: ${res.status})`);
-      }
+    let success = false;
+    let lastErrorMsg = "";
 
-      const data = await res.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) throw new Error("Geminiからの回答を受け取れませんでした。");
-
-      const result = JSON.parse(rawText);
-      
-      if (result.valid_words && result.valid_words.length > 0) {
-        playSound('success');
-        result.valid_words.forEach(w => {
-          addLog(w.word, w.score, w.comment);
-          updateScore(w.score);
-          if (w.photo_en) showImage(w.photo_en);
+    // 利用可能なモデルを順番に試す
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`モデル ${modelName} で接続試行中...`);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
         });
-      } else {
-        playSound('fail');
-        addLog("該当なし", 0, "意味の通じる単語が見つかりませんでした...");
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `HTTPエラー ${res.status}`);
+        }
+
+        const data = await res.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) throw new Error("応答テキストを取得できませんでした。");
+
+        const result = JSON.parse(rawText);
+        
+        if (result.valid_words && result.valid_words.length > 0) {
+          playSound('success');
+          result.valid_words.forEach(w => {
+            addLog(w.word, w.score, w.comment);
+            updateScore(w.score);
+            if (w.photo_en) showImage(w.photo_en);
+          });
+        } else {
+          playSound('fail');
+          addLog("該当なし", 0, "意味の通じる単語が見つかりませんでした...");
+        }
+
+        success = true;
+        break; // 成功したらループを抜ける
+
+      } catch (err) {
+        console.warn(`${modelName} でのエラー:`, err.message);
+        lastErrorMsg = err.message;
+        // 次のモデルに切り替えて再試行します
       }
-    } catch(e) {
+    }
+
+    if (!success) {
       playSound('fail');
-      alert("【判定エラー】\n" + e.message);
+      alert(`【判定エラー】\nすべてのモデルで接続に失敗しました。\n詳細: ${lastErrorMsg}`);
     }
   }
