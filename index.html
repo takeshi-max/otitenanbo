@@ -2,13 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>🔤 AIワードパズル Pro</title>
   <style>
-    /* 全体でダブルタップズームやスクロールを抑制 */
+    /* 連打ズーム防止とスクロール抑制 */
     * { 
       box-sizing: border-box; 
-      touch-action: none; /* ズーム禁止の決定打 */
+      touch-action: none; 
       -webkit-user-select: none; 
       -webkit-tap-highlight-color: transparent;
     }
@@ -18,7 +18,7 @@
       margin: 0; padding: 0; 
       height: 100dvh; display: flex; flex-direction: column; 
       overflow: hidden; 
-      overscroll-behavior: none; /* 画面のバウンスを禁止 */
+      overscroll-behavior: none;
     }
 
     /* 1. ヘッダー */
@@ -29,19 +29,18 @@
     }
     input[type="password"] { 
       flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #475569; 
-      background: #0f172a; color: white; font-size: 11px; touch-action: auto; /* 入力欄だけは操作を許可 */
+      background: #0f172a; color: white; font-size: 11px; touch-action: auto;
     }
-    .score-area { text-align: right; min-width: 60px; }
     .score-val { font-size: 18px; font-weight: bold; color: #38bdf8; }
 
-    /* 2. 情報エリア（ログと画像） */
+    /* 2. 情報エリア */
     .info-area {
       display: flex; gap: 8px; padding: 8px; background: #0f172a; height: 80px;
     }
     .log-box { 
       flex: 1; background: #1e293b; border-radius: 8px; padding: 6px; 
       font-size: 11px; overflow-y: auto; border: 1px solid #334155;
-      touch-action: pan-y; /* ログのスクロールだけ許可 */
+      touch-action: pan-y;
     }
     .photo-frame { 
       width: 64px; height: 64px; background: #000; border-radius: 8px; 
@@ -49,7 +48,7 @@
     }
     #wordImage { width: 100%; height: 100%; object-fit: cover; }
 
-    /* 3. ゲーム盤面：中央 */
+    /* 3. ゲーム盤面 */
     .game-main { 
       flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
       padding: 5px; position: relative;
@@ -58,9 +57,9 @@
       background: #000; border: 2px solid #38bdf8; border-radius: 8px;
       max-height: 100%; width: auto; aspect-ratio: 6 / 10;
     }
-    #statusMsg { position: absolute; bottom: 5px; font-size: 10px; color: #38bdf8; }
+    #statusMsg { font-size: 12px; font-weight: bold; height: 16px; margin-top: 5px; }
 
-    /* 4. コントローラー：マークのズレを修正 */
+    /* 4. コントローラー：マークのズレ修正 */
     .controls { 
       padding: 10px 15px calc(15px + env(safe-area-inset-bottom)); 
       background: #1e293b; 
@@ -71,7 +70,7 @@
       height: 60px; background: #334155; color: white; border: none; 
       border-radius: 12px; font-size: 24px; font-weight: bold; 
       box-shadow: 0 4px 0 #000;
-      /* ここでマークを真ん中に固定 */
+      /* Flexboxでマークを中央に */
       display: flex; justify-content: center; align-items: center;
     }
     .btn:active { transform: translateY(2px); box-shadow: none; background: #475569; }
@@ -79,7 +78,6 @@
       grid-column: span 3; background: #e11d48; font-size: 16px; 
       box-shadow: 0 4px 0 #9f1239; height: 50px;
     }
-    .btn svg { width: 24px; height: 24px; fill: currentColor; } /* アイコンを使用する場合 */
   </style>
 </head>
 <body>
@@ -87,18 +85,12 @@
 <div class="header">
   <input type="password" id="apiKey" placeholder="Gemini Key" />
   <button onclick="toggleBGM()" id="bgmToggle" style="background:#334155; color:white; border:none; padding:8px; border-radius:6px; font-size:10px;">🎵 BGM</button>
-  <div class="score-area">
-    <div class="score-val" id="scoreDisplay">0</div>
-  </div>
+  <div class="score-area"><div class="score-val" id="scoreDisplay">0</div></div>
 </div>
 
 <div class="info-area">
-  <div class="log-box" id="logBox">
-    <div style="color: #64748b;">文字を並べて判定しよう！</div>
-  </div>
-  <div class="photo-frame">
-    <img id="wordImage" style="display:none;">
-  </div>
+  <div class="log-box" id="logBox"><div style="color: #64748b;">文字を並べて判定しよう！</div></div>
+  <div class="photo-frame"><img id="wordImage" style="display:none;"></div>
 </div>
 
 <div class="game-main">
@@ -107,7 +99,6 @@
 </div>
 
 <div class="controls">
-  <!-- マークをUnicodeの矢印に変更し、Flexboxで中央配置 -->
   <div class="btn" onpointerdown="moveLeft()"><span>◀</span></div>
   <div class="btn" onpointerdown="dropFast()"><span>▼</span></div>
   <div class="btn" onpointerdown="moveRight()"><span>▶</span></div>
@@ -115,32 +106,20 @@
 </div>
 
 <script>
-  // --- システム設定 ---
-  const COLS = 6;
-  const ROWS = 10;
-  const BLOCK_SIZE = 40;
+  const COLS = 6, ROWS = 10, BLOCK_SIZE = 40;
   const chars = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん";
-  
   let board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-  let currentPiece = null;
-  let score = 0;
-  let audioCtx = null;
-  let isBgmOn = false;
-  let bgmInterval = null;
-
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
+  let currentPiece = null, score = 0, audioCtx = null, isBgmOn = false, bgmInterval = null;
+  const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
   const apiKeyInput = document.getElementById('apiKey');
-  
   apiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
   apiKeyInput.addEventListener('change', () => localStorage.setItem('gemini_api_key', apiKeyInput.value.trim()));
 
-  // --- ゲームロジック ---
   function spawnPiece() {
-    const char = chars[Math.floor(Math.random() * chars.length)];
-    currentPiece = { x: 2, y: 0, char: char };
+    currentPiece = { x: 2, y: 0, char: chars[Math.floor(Math.random() * chars.length)] };
     if (board[0][2]) {
-      alert("GAME OVER! Score: " + score);
+      playSound('fail');
+      alert("GAME OVER!");
       board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
       score = 0; updateScoreDisplay();
     }
@@ -148,35 +127,21 @@
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (board[r][c]) drawBlock(c, r, board[r][c], "#1e293b", "#38bdf8", false);
-      }
-    }
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c]) drawBlock(c, r, board[r][c], "#1e293b", "#38bdf8", false);
     if (currentPiece) drawBlock(currentPiece.x, currentPiece.y, currentPiece.char, "#0284c7", "#fff", true);
   }
 
   function drawBlock(x, y, char, bg, textColor, isActive) {
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.roundRect(x * BLOCK_SIZE + 1, y * BLOCK_SIZE + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2, 8);
-    ctx.fill();
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(x * BLOCK_SIZE + 1, y * BLOCK_SIZE + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2, 8); ctx.fill();
     if(isActive) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
-    ctx.fillStyle = textColor;
-    ctx.font = "bold 22px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.fillStyle = textColor; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(char, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + BLOCK_SIZE/2);
   }
 
   function update() {
     if (!currentPiece) return;
-    if (canMove(currentPiece.x, currentPiece.y + 1)) {
-      currentPiece.y++;
-    } else {
-      board[currentPiece.y][currentPiece.x] = currentPiece.char;
-      spawnPiece();
-    }
+    if (canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++;
+    else { board[currentPiece.y][currentPiece.x] = currentPiece.char; spawnPiece(); }
     draw();
   }
 
@@ -185,12 +150,10 @@
   function moveRight() { if (currentPiece && canMove(currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playSound('move'); draw(); } }
   function dropFast() { if (currentPiece) { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); } }
 
-  // --- AI判定 ---
   async function checkWords() {
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) return alert("APIキーを入力してください");
-    const judgeBtn = document.getElementById('judgeBtn');
-    const statusMsg = document.getElementById('statusMsg');
+    const judgeBtn = document.getElementById('judgeBtn'), statusMsg = document.getElementById('statusMsg');
     judgeBtn.disabled = true;
 
     let candidates = [];
@@ -206,10 +169,8 @@
     candidates = [...new Set(candidates)];
     if (candidates.length === 0) { judgeBtn.disabled = false; return; }
 
-    const prompt = `日本語判定。以下から意味の通じる単語のみ抽出しJSONで返せ。リスト: ${JSON.stringify(candidates)}
-形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "Prompt"}]}`;
-
     try {
+      statusMsg.style.color = "#38bdf8";
       statusMsg.textContent = "AI判定中...";
       const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const mData = await mRes.json();
@@ -219,7 +180,10 @@
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `日本語判定。以下から意味の通じる単語のみ抽出しJSONで返せ。リスト: ${JSON.stringify(candidates)} 形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "Prompt"}]}` }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
       });
 
       if (response.ok) {
@@ -227,19 +191,24 @@
         const result = JSON.parse(data.candidates[0].content.parts[0].text);
         if (result.valid_words && result.valid_words.length > 0) {
           playSound('success');
+          statusMsg.style.color = "#4ade80";
+          statusMsg.textContent = "単語を発見！消去します。";
           result.valid_words.forEach(w => {
-            addLog(w.word, w.score, w.comment);
-            score += w.score;
-            eraseWord(w.word);
-            if (w.photo_en) showImage(w.photo_en);
+            addLog(w.word, w.score, w.comment); score += w.score;
+            eraseWord(w.word); if (w.photo_en) showImage(w.photo_en);
           });
-          applyGravity();
-          updateScoreDisplay();
+          applyGravity(); updateScoreDisplay();
           localStorage.setItem('last_word_model', targetModel);
+        } else {
+          // 該当なしの場合
+          playSound('fail');
+          statusMsg.style.color = "#e11d48";
+          statusMsg.textContent = "該当なしでした...";
+          addLog("該当なし", 0, "有効な単語が見つかりませんでした。");
         }
       }
     } catch (err) { console.error(err); }
-    finally { judgeBtn.disabled = false; statusMsg.textContent = ""; draw(); }
+    finally { judgeBtn.disabled = false; draw(); setTimeout(() => statusMsg.textContent = "", 3000); }
   }
 
   function eraseWord(word) {
@@ -261,10 +230,7 @@
       let emptyRow = ROWS - 1;
       for (let r = ROWS - 1; r >= 0; r--) {
         if (board[r][c] !== null) {
-          let temp = board[r][c];
-          board[r][c] = null;
-          board[emptyRow][c] = temp;
-          emptyRow--;
+          let temp = board[r][c]; board[r][c] = null; board[emptyRow][c] = temp; emptyRow--;
         }
       }
     }
@@ -274,24 +240,31 @@
   function addLog(word, pts, comment) {
     const box = document.getElementById('logBox');
     const div = document.createElement('div');
-    div.innerHTML = `<b style="color:#4ade80;">『${word}』</b> +${pts}pt<br>${comment}`;
+    div.innerHTML = `<b style="color:${pts > 0 ? '#4ade80' : '#e11d48'};">『${word}』</b> ${pts > 0 ? '+'+pts+'pt' : ''}<br>${comment}`;
     box.prepend(div);
   }
   function showImage(p) {
     const img = document.getElementById('wordImage');
-    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + ", cute 3D emoji style") }?width=200&height=200&nologo=true`;
+    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + ", cute 3D emoji") }?width=200&height=200&nologo=true`;
     img.style.display = 'block';
   }
 
   function playSound(t) {
     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
-    if(t==='move'){ o.frequency.value=400; g.gain.value=0.05; o.start(); o.stop(audioCtx.currentTime+0.05); }
+    const now = audioCtx.currentTime;
+    if(t==='move'){ o.frequency.value=400; g.gain.value=0.05; o.start(); o.stop(now+0.05); }
+    if(t==='fail'){ // ブザー音
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(150, now); 
+      o.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+      g.gain.setValueAtTime(0.1, now); g.gain.linearRampToValueAtTime(0.01, now + 0.3);
+      o.start(); o.stop(now + 0.3);
+    }
     if(t==='success'){ [523,659,784].forEach((f,i)=>{
-      const oo=audioCtx.createOscillator(); const gg=audioCtx.createGain();
+      const oo=audioCtx.createOscillator(), gg=audioCtx.createGain();
       oo.connect(gg); gg.connect(audioCtx.destination); oo.frequency.value=f;
-      gg.gain.setValueAtTime(0.1, audioCtx.currentTime+i*0.1); oo.start(audioCtx.currentTime+i*0.1); oo.stop(audioCtx.currentTime+i*0.1+0.2);
+      gg.gain.setValueAtTime(0.1, now+i*0.1); oo.start(now+i*0.1); oo.stop(now+i*0.1+0.2);
     });}
   }
 
@@ -301,9 +274,9 @@
     document.getElementById('bgmToggle').style.background = isBgmOn ? "#e11d48" : "#334155";
     if(isBgmOn) {
       bgmInterval = setInterval(() => {
-        const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
         o.connect(g); g.connect(audioCtx.destination); o.type='triangle';
-        o.frequency.value=[261,329,392][Math.floor(Math.random()*3)]; g.gain.value=0.02;
+        o.frequency.value=[261,329,392][Math.floor(Math.random()*3)]; g.gain.value=0.015;
         o.start(); o.stop(audioCtx.currentTime+0.2);
       }, 300);
     } else clearInterval(bgmInterval);
