@@ -66,9 +66,7 @@
 </div>
 
 <script>
-  // --------------------------------------------------
-  // 🔊 サウンド機能（Web Audio APIによる本格レトロBGM）
-  // --------------------------------------------------
+  // 🔊 サウンド機能（Web Audio API）
   let audioCtx = null;
   let isBgmOn = false;
   let bgmInterval = null;
@@ -122,7 +120,7 @@
     }
   }
 
-  // リズミカルなBGM（メロディ ＋ ベース ＋ ノイズドラム）
+  // レトロゲーム風BGM
   const melody = [261.63, 0, 329.63, 392.00, 523.25, 392.00, 329.63, 0, 293.66, 0, 349.23, 440.00, 587.33, 440.00, 349.23, 0];
   const bass = [130.81, 130.81, 164.81, 164.81, 174.61, 174.61, 196.00, 196.00];
 
@@ -138,7 +136,6 @@
       bgmInterval = setInterval(() => {
         const now = audioCtx.currentTime;
 
-        // メロディ
         const note = melody[step % melody.length];
         if (note > 0) {
           const osc = audioCtx.createOscillator();
@@ -151,7 +148,6 @@
           osc.start(now); osc.stop(now + 0.12);
         }
 
-        // ベース
         const bassNote = bass[Math.floor(step / 2) % bass.length];
         if (step % 2 === 0) {
           const bOsc = audioCtx.createOscillator();
@@ -164,7 +160,6 @@
           bOsc.start(now); bOsc.stop(now + 0.18);
         }
 
-        // ドラム風ノイズ（ハイハット）
         if (step % 2 === 1) {
           const bufferSize = audioCtx.sampleRate * 0.03;
           const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -181,15 +176,13 @@
         }
 
         step++;
-      }, 140); // テンポ調整（140msごと）
+      }, 140);
     } else {
       clearInterval(bgmInterval);
     }
   }
 
-  // --------------------------------------------------
   // 🎮 ゲーム本体 & ロジック
-  // --------------------------------------------------
   const COLS = 6;
   const ROWS = 10;
   const BLOCK_SIZE = 40;
@@ -273,3 +266,135 @@
     const diffY = e.changedTouches[0].clientY - touchStartY;
     if (Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX > 30) moveRight();
+      else if (diffX < -30) moveLeft();
+    } else {
+      if (diffY > 30) dropFast();
+    }
+  }, { passive: true });
+
+  // 🤖 縦横判定 ＆ 自動モデルフォールバック対応
+  async function checkWords() {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) return alert("Gemini APIキーを入力してください！");
+
+    let candidates = [];
+
+    for (let r = 0; r < ROWS; r++) {
+      let str = "";
+      for (let c = 0; c < COLS; c++) {
+        if (board[r][c]) str += board[r][c];
+        else {
+          if (str.length >= 2) candidates.push(str);
+          str = "";
+        }
+      }
+      if (str.length >= 2) candidates.push(str);
+    }
+
+    for (let c = 0; c < COLS; c++) {
+      let str = "";
+      for (let r = 0; r < ROWS; r++) {
+        if (board[r][c]) str += board[r][c];
+        else {
+          if (str.length >= 2) candidates.push(str);
+          str = "";
+        }
+      }
+      if (str.length >= 2) candidates.push(str);
+    }
+
+    candidates = [...new Set(candidates)];
+    if (candidates.length === 0) return alert("2文字以上並んでいる場所（縦・横）がありません！");
+
+    const prompt = `以下の文字リストから「意味の通じる日本語の単語」のみを抽出してください。
+リスト: ${JSON.stringify(candidates)}
+
+必ず以下の形式のJSONのみで返答してください:
+{"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "English image prompt"}]}`;
+
+    const modelsToTry = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ];
+
+    let success = false;
+    let lastErrorMsg = "";
+
+    for (const modelName of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) throw new Error("応答データが空でした");
+
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("JSON形式で解析できませんでした");
+        
+        const result = JSON.parse(jsonMatch[0]);
+        
+        if (result.valid_words && result.valid_words.length > 0) {
+          playSound('success');
+          result.valid_words.forEach(w => {
+            addLog(w.word, w.score, w.comment);
+            updateScore(w.score);
+            if (w.photo_en) showImage(w.photo_en);
+          });
+        } else {
+          playSound('fail');
+          addLog("該当なし", 0, "意味の通じる単語が見つかりませんでした");
+        }
+
+        success = true;
+        break;
+
+      } catch (err) {
+        lastErrorMsg = err.message;
+      }
+    }
+
+    if (!success) {
+      playSound('fail');
+      alert(`【判定エラー】\nすべての接続パターンに失敗しました。\n詳細: ${lastErrorMsg}`);
+    }
+  }
+
+  function addLog(word, pts, comment) {
+    const logBox = document.getElementById('logBox');
+    const div = document.createElement('div');
+    div.className = "log-item";
+    div.innerHTML = `<span class="word-title">『${word}』</span> (+${pts}pt)<br>${comment}`;
+    logBox.prepend(div);
+  }
+
+  function updateScore(pts) {
+    score += pts;
+    document.getElementById('scoreDisplay').textContent = score;
+  }
+
+  function showImage(promptEn) {
+    const img = document.getElementById('wordImage');
+    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptEn)}?width=200&height=200&nologo=true&model=flux`;
+    img.style.display = 'block';
+  }
+
+  spawnPiece();
+  draw();
+  gameInterval = setInterval(update, 1200);
+</script>
+
+</body>
+</html>
