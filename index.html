@@ -5,16 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>🔤 AIワードパズル Pro</title>
   <style>
-    * { box-sizing: border-box; touch-action: manipulation; -webkit-user-select: none; }
+    /* 全体でダブルタップズームやスクロールを抑制 */
+    * { 
+      box-sizing: border-box; 
+      touch-action: none; /* ズーム禁止の決定打 */
+      -webkit-user-select: none; 
+      -webkit-tap-highlight-color: transparent;
+    }
     body { 
       font-family: 'Segoe UI', sans-serif; 
       background: #090d16; color: white; 
       margin: 0; padding: 0; 
       height: 100dvh; display: flex; flex-direction: column; 
       overflow: hidden; 
+      overscroll-behavior: none; /* 画面のバウンスを禁止 */
     }
 
-    /* 1. ヘッダー：設定とスコア */
+    /* 1. ヘッダー */
     .header { 
       padding: 10px; background: #1e293b; 
       display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -22,69 +29,72 @@
     }
     input[type="password"] { 
       flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #475569; 
-      background: #0f172a; color: white; font-size: 11px; 
+      background: #0f172a; color: white; font-size: 11px; touch-action: auto; /* 入力欄だけは操作を許可 */
     }
-    .bgm-btn { padding: 8px 12px; font-size: 12px; border-radius: 6px; border: none; background: #334155; color: white; cursor: pointer; }
+    .score-area { text-align: right; min-width: 60px; }
+    .score-val { font-size: 18px; font-weight: bold; color: #38bdf8; }
 
-    /* 2. 情報エリア：AIログと画像 */
+    /* 2. 情報エリア（ログと画像） */
     .info-area {
-      display: flex; gap: 8px; padding: 8px; background: #0f172a; height: 90px;
+      display: flex; gap: 8px; padding: 8px; background: #0f172a; height: 80px;
     }
     .log-box { 
       flex: 1; background: #1e293b; border-radius: 8px; padding: 6px; 
-      font-size: 11px; overflow-y: auto; border: 1px solid #38bdf8;
+      font-size: 11px; overflow-y: auto; border: 1px solid #334155;
+      touch-action: pan-y; /* ログのスクロールだけ許可 */
     }
     .photo-frame { 
-      width: 74px; height: 74px; background: #000; border-radius: 8px; 
+      width: 64px; height: 64px; background: #000; border-radius: 8px; 
       border: 1px solid #38bdf8; overflow: hidden; flex-shrink: 0;
     }
     #wordImage { width: 100%; height: 100%; object-fit: cover; }
 
-    /* 3. ゲーム盤面：中央に大きく */
+    /* 3. ゲーム盤面：中央 */
     .game-main { 
       flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
-      padding: 5px; background: #090d16;
+      padding: 5px; position: relative;
     }
     #gameCanvas { 
       background: #000; border: 2px solid #38bdf8; border-radius: 8px;
       max-height: 100%; width: auto; aspect-ratio: 6 / 10;
     }
-    .score-label { color: #38bdf8; font-weight: bold; font-size: 14px; margin-bottom: 4px; }
-    .score-val { font-size: 24px; color: #fff; }
+    #statusMsg { position: absolute; bottom: 5px; font-size: 10px; color: #38bdf8; }
 
-    /* 4. コントローラー：下部に固定 */
+    /* 4. コントローラー：マークのズレを修正 */
     .controls { 
-      padding: 10px 15px calc(10px + env(safe-area-inset-bottom)); 
+      padding: 10px 15px calc(15px + env(safe-area-inset-bottom)); 
       background: #1e293b; 
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
       border-top: 1px solid #334155;
     }
     .btn { 
-      padding: 16px 0; background: #334155; color: white; border: none; 
-      border-radius: 12px; font-size: 20px; font-weight: bold; 
+      height: 60px; background: #334155; color: white; border: none; 
+      border-radius: 12px; font-size: 24px; font-weight: bold; 
       box-shadow: 0 4px 0 #000;
+      /* ここでマークを真ん中に固定 */
+      display: flex; justify-content: center; align-items: center;
     }
     .btn:active { transform: translateY(2px); box-shadow: none; background: #475569; }
     .btn-judge { 
       grid-column: span 3; background: #e11d48; font-size: 16px; 
-      box-shadow: 0 4px 0 #9f1239; padding: 14px 0;
+      box-shadow: 0 4px 0 #9f1239; height: 50px;
     }
+    .btn svg { width: 24px; height: 24px; fill: currentColor; } /* アイコンを使用する場合 */
   </style>
 </head>
 <body>
 
 <div class="header">
   <input type="password" id="apiKey" placeholder="Gemini Key" />
-  <button class="bgm-btn" onclick="toggleBGM()" id="bgmToggle">🎵 BGM</button>
-  <div style="text-align: right;">
-    <div style="font-size: 9px; color: #94a3b8;">SCORE</div>
-    <div class="score-val" id="scoreDisplay" style="font-size: 18px; font-weight: bold; color: #38bdf8;">0</div>
+  <button onclick="toggleBGM()" id="bgmToggle" style="background:#334155; color:white; border:none; padding:8px; border-radius:6px; font-size:10px;">🎵 BGM</button>
+  <div class="score-area">
+    <div class="score-val" id="scoreDisplay">0</div>
   </div>
 </div>
 
 <div class="info-area">
   <div class="log-box" id="logBox">
-    <div style="color: #64748b;">文字を並べて判定ボタンを押そう！</div>
+    <div style="color: #64748b;">文字を並べて判定しよう！</div>
   </div>
   <div class="photo-frame">
     <img id="wordImage" style="display:none;">
@@ -93,18 +103,19 @@
 
 <div class="game-main">
   <canvas id="gameCanvas" width="240" height="400"></canvas>
-  <div id="statusMsg" style="font-size:10px; color:#38bdf8; height:14px; margin-top:4px;"></div>
+  <div id="statusMsg"></div>
 </div>
 
 <div class="controls">
-  <div class="btn" onpointerdown="moveLeft()">◀</div>
-  <div class="btn" onpointerdown="dropFast()">▼</div>
-  <div class="btn" onpointerdown="moveRight()">▶</div>
+  <!-- マークをUnicodeの矢印に変更し、Flexboxで中央配置 -->
+  <div class="btn" onpointerdown="moveLeft()"><span>◀</span></div>
+  <div class="btn" onpointerdown="dropFast()"><span>▼</span></div>
+  <div class="btn" onpointerdown="moveRight()"><span>▶</span></div>
   <button class="btn btn-judge" id="judgeBtn" onclick="checkWords()">💡 並んだ言葉を判定して消去</button>
 </div>
 
 <script>
-  // --- 基本設定 ---
+  // --- システム設定 ---
   const COLS = 6;
   const ROWS = 10;
   const BLOCK_SIZE = 40;
@@ -151,7 +162,6 @@
     ctx.roundRect(x * BLOCK_SIZE + 1, y * BLOCK_SIZE + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2, 8);
     ctx.fill();
     if(isActive) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
-    
     ctx.fillStyle = textColor;
     ctx.font = "bold 22px sans-serif";
     ctx.textAlign = "center";
@@ -170,39 +180,33 @@
     draw();
   }
 
-  function canMove(nx, ny) {
-    return nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !board[ny][nx];
-  }
-
+  function canMove(nx, ny) { return nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !board[ny][nx]; }
   function moveLeft() { if (currentPiece && canMove(currentPiece.x - 1, currentPiece.y)) { currentPiece.x--; playSound('move'); draw(); } }
   function moveRight() { if (currentPiece && canMove(currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playSound('move'); draw(); } }
   function dropFast() { if (currentPiece) { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); } }
 
-  // --- AI判定 & 消去ロジック ---
+  // --- AI判定 ---
   async function checkWords() {
     const apiKey = apiKeyInput.value.trim();
-    if (!apiKey) return alert("API Keyを入力してください");
-
+    if (!apiKey) return alert("APIキーを入力してください");
     const judgeBtn = document.getElementById('judgeBtn');
     const statusMsg = document.getElementById('statusMsg');
     judgeBtn.disabled = true;
 
-    let horizontalWords = [];
+    let candidates = [];
     for (let r = 0; r < ROWS; r++) {
       let line = board[r].map(c => c || ' ').join('');
-      line.split(' ').forEach(s => { if(s.length >= 2) horizontalWords.push(s); });
+      line.split(' ').forEach(s => { if(s.length >= 2) candidates.push(s); });
     }
-    let verticalWords = [];
     for (let c = 0; c < COLS; c++) {
       let line = "";
       for (let r = 0; r < ROWS; r++) line += (board[r][c] || ' ');
-      line.split(' ').forEach(s => { if(s.length >= 2) verticalWords.push(s); });
+      line.split(' ').forEach(s => { if(s.length >= 2) candidates.push(s); });
     }
+    candidates = [...new Set(candidates)];
+    if (candidates.length === 0) { judgeBtn.disabled = false; return; }
 
-    const allCandidates = [...new Set([...horizontalWords, ...verticalWords])];
-    if (allCandidates.length === 0) { judgeBtn.disabled = false; return; }
-
-    const prompt = `日本語判定。以下から意味の通じる単語のみ抽出しJSONで返せ。リスト: ${JSON.stringify(allCandidates)}
+    const prompt = `日本語判定。以下から意味の通じる単語のみ抽出しJSONで返せ。リスト: ${JSON.stringify(candidates)}
 形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "Prompt"}]}`;
 
     try {
@@ -210,9 +214,9 @@
       const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const mData = await mRes.json();
       const models = mData.models.filter(m => m.supportedGenerationMethods.includes("generateContent")).sort((a,b)=>b.name.localeCompare(a.name));
-      const lastModel = localStorage.getItem('last_working_word_model') || models[0].name;
+      const targetModel = localStorage.getItem('last_word_model') || models[0].name;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${lastModel}:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
@@ -226,19 +230,19 @@
           result.valid_words.forEach(w => {
             addLog(w.word, w.score, w.comment);
             score += w.score;
-            eraseWordFromBoard(w.word);
+            eraseWord(w.word);
             if (w.photo_en) showImage(w.photo_en);
           });
           applyGravity();
           updateScoreDisplay();
-          localStorage.setItem('last_working_word_model', lastModel);
+          localStorage.setItem('last_word_model', targetModel);
         }
       }
     } catch (err) { console.error(err); }
     finally { judgeBtn.disabled = false; statusMsg.textContent = ""; draw(); }
   }
 
-  function eraseWordFromBoard(word) {
+  function eraseWord(word) {
     for (let r = 0; r < ROWS; r++) {
       let rowStr = board[r].map(c => c || ' ').join('');
       let idx = rowStr.indexOf(word);
@@ -275,7 +279,7 @@
   }
   function showImage(p) {
     const img = document.getElementById('wordImage');
-    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + ", cute 3D render") }?width=200&height=200&nologo=true`;
+    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + ", cute 3D emoji style") }?width=200&height=200&nologo=true`;
     img.style.display = 'block';
   }
 
