@@ -6,59 +6,62 @@
   <title>🔤 AIワードパズルDrop</title>
   <style>
     * { box-sizing: border-box; touch-action: manipulation; }
-    body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; padding: 10px; display: flex; justify-content: center; }
-    .app-container { display: flex; flex-direction: column; gap: 10px; max-width: 450px; width: 100%; }
+    body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; padding: 10px; display: flex; justify-content: center; overflow: hidden; }
+    .app-container { display: flex; flex-direction: column; gap: 10px; max-width: 450px; width: 100%; height: 100vh; }
     .card { background: #1e293b; border-radius: 16px; padding: 12px; border: 1px solid #334155; }
     
     .header-area { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    input[type="password"] { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 11px; }
+    input[type="password"] { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 11px; outline: none; }
     .score-val { font-size: 18px; font-weight: bold; color: #38bdf8; }
-    .sound-btn { padding: 6px 12px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .sound-btn { padding: 6px 12px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; }
 
-    .game-section { text-align: center; display: flex; flex-direction: column; align-items: center; }
-    #gameCanvas { background: #090d16; border: 3px solid #38bdf8; border-radius: 8px; touch-action: none; max-width: 100%; height: auto; }
+    .game-section { text-align: center; display: flex; flex-direction: column; align-items: center; position: relative; }
+    #gameCanvas { background: #090d16; border: 3px solid #38bdf8; border-radius: 8px; touch-action: none; width: 100%; max-width: 240px; height: auto; }
     
-    .mobile-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; margin-top: 8px; }
-    .btn { padding: 12px 0; background: #0284c7; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; text-align: center; user-select: none; }
-    .btn:active { background: #0369a1; transform: scale(0.96); }
-    .btn-judge { grid-column: span 3; background: #e11d48; font-size: 15px; }
-    .btn-judge:active { background: #be123c; }
+    .mobile-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 300px; margin-top: 8px; }
+    .btn { padding: 15px 0; background: #334155; color: white; border: none; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; text-align: center; user-select: none; box-shadow: 0 4px 0 #0f172a; }
+    .btn:active { transform: translateY(2px); box-shadow: none; background: #475569; }
+    .btn-judge { grid-column: span 3; background: #e11d48; font-size: 16px; box-shadow: 0 4px 0 #9f1239; margin-top: 5px; }
 
-    .ai-result-area { display: flex; gap: 10px; }
-    .log-box { flex: 1; background: #0f172a; border-radius: 8px; padding: 8px; border: 1px solid #334155; height: 100px; overflow-y: auto; font-size: 12px; }
-    .log-item { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed #334155; }
-    .word-title { font-weight: bold; color: #4ade80; font-size: 13px; }
+    .ai-result-area { display: flex; gap: 10px; align-items: center; }
+    .log-box { flex: 1; background: #0f172a; border-radius: 8px; padding: 8px; border: 1px solid #334155; height: 100px; overflow-y: auto; font-size: 11px; }
+    .log-item { margin-bottom: 6px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+    .word-title { font-weight: bold; color: #4ade80; }
 
-    .photo-frame { width: 100px; height: 100px; background: #0f172a; border-radius: 8px; overflow: hidden; border: 1px solid #334155; flex-shrink: 0; }
+    .photo-frame { width: 100px; height: 100px; background: #0f172a; border-radius: 8px; overflow: hidden; border: 2px solid #38bdf8; flex-shrink: 0; position: relative; }
     #wordImage { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .loading-spin { font-size: 10px; color: #64748b; position: absolute; top: 40%; width: 100%; text-align: center; }
+
+    .status-msg { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 4px; height: 12px; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <div class="card header-area">
-    <input type="password" id="apiKey" placeholder="Gemini API Keyを入力" />
+    <input type="password" id="apiKey" placeholder="Gemini API Key" />
     <button class="sound-btn" id="bgmToggle" onclick="toggleBGM()">🎵 BGM: OFF</button>
     <div>SCORE: <span class="score-val" id="scoreDisplay">0</span></div>
   </div>
 
   <div class="card game-section">
     <canvas id="gameCanvas" width="240" height="400"></canvas>
+    <div id="statusMsg" class="status-msg"></div>
     <div class="mobile-controls">
-      <div class="btn" onclick="moveLeft()">◀</div>
-      <div class="btn" onclick="dropFast()">▼</div>
-      <div class="btn" onclick="moveRight()">▶</div>
-      <div class="btn btn-judge" onclick="checkWords()">💡 単語判定！</div>
+      <div class="btn" onpointerdown="moveLeft()">◀</div>
+      <div class="btn" onpointerdown="dropFast()">▼</div>
+      <div class="btn" onpointerdown="moveRight()">▶</div>
+      <button class="btn btn-judge" id="judgeBtn" onclick="checkWords()">💡 並んだ文字を判定！</button>
     </div>
   </div>
 
   <div class="card">
-    <div style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">🧠 Gemini判定 ＆ ビジュアル</div>
     <div class="ai-result-area">
       <div class="log-box" id="logBox">
-        <div style="color: #64748b;">文字を並べて「単語判定！」を押してね！</div>
+        <div style="color: #64748b;">判定した単語の歴史</div>
       </div>
       <div class="photo-frame">
+        <div id="imgLoading" class="loading-spin" style="display:none;">生成中...</div>
         <img id="wordImage" alt="Word Image">
       </div>
     </div>
@@ -66,63 +69,39 @@
 </div>
 
 <script>
-  // 🔊 サウンド機能（Web Audio API）
   let audioCtx = null;
   let isBgmOn = false;
   let bgmInterval = null;
   let step = 0;
 
   function initAudio() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
   }
 
   function playSound(type) {
     initAudio();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
+    osc.connect(gain); gain.connect(audioCtx.destination);
 
     if (type === 'move') {
-      osc.frequency.setValueAtTime(300, now);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-      osc.start(now); osc.stop(now + 0.05);
-    } else if (type === 'drop') {
-      osc.frequency.setValueAtTime(400, now);
-      osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-      gain.gain.setValueAtTime(0.1, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-      osc.start(now); osc.stop(now + 0.1);
+      osc.frequency.setValueAtTime(440, now);
+      gain.gain.setValueAtTime(0.05, now);
+      osc.start(); osc.stop(now + 0.05);
     } else if (type === 'success') {
-      [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+      [523, 659, 784].forEach((f, i) => {
         const o = audioCtx.createOscillator();
         const g = audioCtx.createGain();
         o.connect(g); g.connect(audioCtx.destination);
-        o.frequency.setValueAtTime(freq, now + idx * 0.08);
-        g.gain.setValueAtTime(0.12, now + idx * 0.08);
-        g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.15);
-        o.start(now + idx * 0.08); o.stop(now + idx * 0.08 + 0.15);
+        o.frequency.setValueAtTime(f, now + i*0.1);
+        g.gain.setValueAtTime(0.1, now + i*0.1);
+        g.gain.exponentialRampToValueAtTime(0.01, now + i*0.1 + 0.2);
+        o.start(now+i*0.1); o.stop(now+i*0.1+0.2);
       });
-    } else if (type === 'fail') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, now);
-      osc.frequency.setValueAtTime(120, now + 0.1);
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-      osc.start(now); osc.stop(now + 0.25);
     }
   }
-
-  // レトロゲーム風BGM
-  const melody = [261.63, 0, 329.63, 392.00, 523.25, 392.00, 329.63, 0, 293.66, 0, 349.23, 440.00, 587.33, 440.00, 349.23, 0];
-  const bass = [130.81, 130.81, 164.81, 164.81, 174.61, 174.61, 196.00, 196.00];
 
   function toggleBGM() {
     initAudio();
@@ -130,63 +109,28 @@
     const btn = document.getElementById('bgmToggle');
     btn.textContent = isBgmOn ? "🎵 BGM: ON" : "🎵 BGM: OFF";
     btn.style.background = isBgmOn ? "#e11d48" : "#0284c7";
-
     if (isBgmOn) {
-      step = 0;
       bgmInterval = setInterval(() => {
         const now = audioCtx.currentTime;
-
-        const note = melody[step % melody.length];
-        if (note > 0) {
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(note, now);
-          gain.gain.setValueAtTime(0.02, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-          osc.connect(gain); gain.connect(audioCtx.destination);
-          osc.start(now); osc.stop(now + 0.12);
-        }
-
-        const bassNote = bass[Math.floor(step / 2) % bass.length];
-        if (step % 2 === 0) {
-          const bOsc = audioCtx.createOscillator();
-          const bGain = audioCtx.createGain();
-          bOsc.type = 'triangle';
-          bOsc.frequency.setValueAtTime(bassNote, now);
-          bGain.gain.setValueAtTime(0.04, now);
-          bGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-          bOsc.connect(bGain); bGain.connect(audioCtx.destination);
-          bOsc.start(now); bOsc.stop(now + 0.18);
-        }
-
-        if (step % 2 === 1) {
-          const bufferSize = audioCtx.sampleRate * 0.03;
-          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-          const data = buffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-          const noise = audioCtx.createBufferSource();
-          noise.buffer = buffer;
-          const nGain = audioCtx.createGain();
-          nGain.gain.setValueAtTime(0.01, now);
-          nGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
-          noise.connect(nGain); nGain.connect(audioCtx.destination);
-          noise.start(now);
-        }
-
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'square';
+        o.frequency.setValueAtTime([261, 329, 392, 523][step%4], now);
+        g.gain.setValueAtTime(0.01, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(now + 0.1);
         step++;
-      }, 140);
+      }, 200);
     } else {
       clearInterval(bgmInterval);
     }
   }
 
-  // 🎮 ゲーム本体 & ロジック
   const COLS = 6;
   const ROWS = 10;
   const BLOCK_SIZE = 40;
-  const chars = ["あ","い","う","え","お","か","き","く","け","こ","さ","し","す","せ","そ","た","ち","つ","て","と","ん"];
+  const chars = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん";
   
   let board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
   let currentPiece = null;
@@ -195,7 +139,6 @@
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  
   const apiKeyInput = document.getElementById('apiKey');
   apiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
   apiKeyInput.addEventListener('change', () => localStorage.setItem('gemini_api_key', apiKeyInput.value.trim()));
@@ -204,11 +147,10 @@
     const char = chars[Math.floor(Math.random() * chars.length)];
     currentPiece = { x: 2, y: 0, char: char };
     if (board[0][2]) {
-      playSound('fail');
-      alert("ゲームオーバー！");
+      alert("ゲームオーバー！ Score: " + score);
       board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
       score = 0;
-      updateScore(0);
+      document.getElementById('scoreDisplay').textContent = 0;
     }
   }
 
@@ -216,19 +158,17 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        if (board[r][c]) drawBlock(c, r, board[r][c], "#0284c7");
+        if (board[r][c]) drawBlock(c, r, board[r][c], "#1e293b", "#38bdf8");
       }
     }
-    if (currentPiece) {
-      drawBlock(currentPiece.x, currentPiece.y, currentPiece.char, "#f59e0b");
-    }
+    if (currentPiece) drawBlock(currentPiece.x, currentPiece.y, currentPiece.char, "#0284c7", "#fff");
   }
 
-  function drawBlock(x, y, char, color) {
-    ctx.fillStyle = color;
+  function drawBlock(x, y, char, bg, textColor) {
+    ctx.fillStyle = bg;
     ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
-    ctx.fillStyle = "white";
-    ctx.font = "bold 20px sans-serif";
+    ctx.fillStyle = textColor;
+    ctx.font = "bold 22px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(char, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + BLOCK_SIZE/2);
@@ -246,130 +186,106 @@
   }
 
   function canMove(nx, ny) {
-    if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
-    if (ny >= 0 && board[ny][nx]) return false;
-    return true;
+    return nx >= 0 && nx < COLS && ny < ROWS && !board[ny][nx];
   }
 
   function moveLeft() { if (currentPiece && canMove(currentPiece.x - 1, currentPiece.y)) { currentPiece.x--; playSound('move'); draw(); } }
   function moveRight() { if (currentPiece && canMove(currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playSound('move'); draw(); } }
-  function dropFast() { if (currentPiece) { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; playSound('drop'); update(); } }
+  function dropFast() { if (currentPiece) { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); } }
 
-  let touchStartX = 0, touchStartY = 0;
-  canvas.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  canvas.addEventListener('touchend', (e) => {
-    const diffX = e.changedTouches[0].clientX - touchStartX;
-    const diffY = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(diffX) > Math.abs(diffY)) {
-      if (diffX > 30) moveRight();
-      else if (diffX < -30) moveLeft();
-    } else {
-      if (diffY > 30) dropFast();
-    }
-  }, { passive: true });
-
-  // 🤖 縦横判定 ＆ 自動モデルフォールバック対応
+  // 🤖 AI探査 & 判定ロジック
   async function checkWords() {
     const apiKey = apiKeyInput.value.trim();
-    if (!apiKey) return alert("Gemini APIキーを入力してください！");
+    if (!apiKey) return alert("APIキーを入力してください");
 
+    const judgeBtn = document.getElementById('judgeBtn');
+    const statusMsg = document.getElementById('statusMsg');
+    judgeBtn.disabled = true;
+
+    // 縦横の文字列を抽出
     let candidates = [];
-
     for (let r = 0; r < ROWS; r++) {
-      let str = "";
-      for (let c = 0; c < COLS; c++) {
-        if (board[r][c]) str += board[r][c];
-        else {
-          if (str.length >= 2) candidates.push(str);
-          str = "";
-        }
-      }
-      if (str.length >= 2) candidates.push(str);
+      let line = board[r].map(c => c || ' ').join('');
+      candidates.push(...extractStrings(line));
     }
-
     for (let c = 0; c < COLS; c++) {
-      let str = "";
-      for (let r = 0; r < ROWS; r++) {
-        if (board[r][c]) str += board[r][c];
-        else {
-          if (str.length >= 2) candidates.push(str);
-          str = "";
-        }
-      }
-      if (str.length >= 2) candidates.push(str);
+      let line = "";
+      for (let r = 0; r < ROWS; r++) line += (board[r][c] || ' ');
+      candidates.push(...extractStrings(line));
     }
 
-    candidates = [...new Set(candidates)];
-    if (candidates.length === 0) return alert("2文字以上並んでいる場所（縦・横）がありません！");
+    candidates = [...new Set(candidates)].filter(s => s.length >= 2);
+    if (candidates.length === 0) {
+      judgeBtn.disabled = false;
+      return alert("単語（2文字以上）が見当たりません");
+    }
 
-    const prompt = `以下の文字リストから「意味の通じる日本語の単語」のみを抽出してください。
+    const prompt = `日本語パズル判定。以下のリストから実在する一般的な日本語単語（名詞・動詞等）を全て見つけ、JSONで返して。
 リスト: ${JSON.stringify(candidates)}
+形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "English image prompt"}]}`;
 
-必ず以下の形式のJSONのみで返答してください:
-{"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "English image prompt"}]}`;
+    try {
+      // モデル探査
+      statusMsg.textContent = "最適なAIモデルを探索中...";
+      const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      const mData = await mRes.json();
+      if (!mRes.ok) throw new Error(mData.error?.message || "Key Error");
 
-    const modelsToTry = [
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash'
-    ];
+      const models = mData.models
+        .filter(m => m.supportedGenerationMethods.includes("generateContent"))
+        .sort((a, b) => b.name.localeCompare(a.name));
 
-    let success = false;
-    let lastErrorMsg = "";
+      const lastModel = localStorage.getItem('last_working_word_model');
+      const targetModels = lastModel ? [{name: lastModel}, ...models.filter(m => m.name !== lastModel)] : models;
 
-    for (const modelName of modelsToTry) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawText) throw new Error("応答データが空でした");
-
-        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("JSON形式で解析できませんでした");
-        
-        const result = JSON.parse(jsonMatch[0]);
-        
-        if (result.valid_words && result.valid_words.length > 0) {
-          playSound('success');
-          result.valid_words.forEach(w => {
-            addLog(w.word, w.score, w.comment);
-            updateScore(w.score);
-            if (w.photo_en) showImage(w.photo_en);
+      let success = false;
+      for (const m of targetModels) {
+        statusMsg.textContent = `${m.name.split('/').pop()} で判定中...`;
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/${m.name}:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
           });
-        } else {
-          playSound('fail');
-          addLog("該当なし", 0, "意味の通じる単語が見つかりませんでした");
-        }
 
-        success = true;
-        break;
-
-      } catch (err) {
-        lastErrorMsg = err.message;
+          if (response.ok) {
+            const data = await response.json();
+            const result = JSON.parse(data.candidates[0].content.parts[0].text);
+            
+            if (result.valid_words && result.valid_words.length > 0) {
+              playSound('success');
+              result.valid_words.forEach(w => {
+                addLog(w.word, w.score, w.comment);
+                score += w.score;
+                if (w.photo_en) showImage(w.photo_en);
+              });
+              document.getElementById('scoreDisplay').textContent = score;
+              // 消去演出（簡易的に盤面から単語を消す場合はここに記述）
+            } else {
+              addLog("なし", 0, "有効な単語なし");
+            }
+            localStorage.setItem('last_working_word_model', m.name);
+            success = true;
+            break;
+          }
+        } catch (e) { continue; }
       }
-    }
+      if (!success) throw new Error("全モデルで拒否されました");
 
-    if (!success) {
-      playSound('fail');
-      alert(`【判定エラー】\nすべての接続パターンに失敗しました。\n詳細: ${lastErrorMsg}`);
+    } catch (err) {
+      alert("AI判定エラー: " + err.message);
+    } finally {
+      judgeBtn.disabled = false;
+      statusMsg.textContent = "";
     }
+  }
+
+  function extractStrings(line) {
+    return line.split(' ').filter(s => s.length >= 2);
   }
 
   function addLog(word, pts, comment) {
@@ -380,20 +296,19 @@
     logBox.prepend(div);
   }
 
-  function updateScore(pts) {
-    score += pts;
-    document.getElementById('scoreDisplay').textContent = score;
-  }
-
   function showImage(promptEn) {
     const img = document.getElementById('wordImage');
-    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptEn)}?width=200&height=200&nologo=true&model=flux`;
-    img.style.display = 'block';
+    const loader = document.getElementById('imgLoading');
+    loader.style.display = 'block';
+    img.style.display = 'none';
+    const finalPrompt = encodeURIComponent(promptEn + ", 3D render, cute style, vibrant colors");
+    img.src = `https://image.pollinations.ai/prompt/${finalPrompt}?width=200&height=200&nologo=true&model=flux`;
+    img.onload = () => { loader.style.display = 'none'; img.style.display = 'block'; };
   }
 
   spawnPiece();
   draw();
-  gameInterval = setInterval(update, 1200);
+  gameInterval = setInterval(update, 1000);
 </script>
 
 </body>
