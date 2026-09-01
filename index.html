@@ -20,9 +20,9 @@
     #wordImage { width: 100%; height: 100%; object-fit: cover; }
     .game-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5px; position: relative; }
     #gameCanvas { background: #000; border: 2px solid #38bdf8; border-radius: 8px; max-height: 100%; width: auto; aspect-ratio: 6 / 10; }
-    #statusMsg { font-size: 12px; font-weight: bold; height: 18px; margin-top: 5px; text-align: center; width: 100%; }
+    #statusMsg { font-size: 11px; font-weight: bold; height: 18px; margin-top: 5px; text-align: center; }
     .controls { padding: 10px 15px calc(10px + env(safe-area-inset-bottom)); background: #1e293b; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border-top: 1px solid #334155; }
-    .btn { height: 60px; background: #334155; color: white; border: none; border-radius: 12px; font-size: 24px; font-weight: bold; box-shadow: 0 4px 0 #000; display: flex; justify-content: center; align-items: center; padding: 0; line-height: 1; }
+    .btn { height: 60px; background: #334155; color: white; border: none; border-radius: 12px; font-size: 24px; font-weight: bold; box-shadow: 0 4px 0 #000; display: flex; justify-content: center; align-items: center; padding: 0; }
     .btn:active { transform: translateY(2px); box-shadow: none; background: #475569; }
     .btn-judge { grid-column: span 3; background: #e11d48; font-size: 16px; box-shadow: 0 4px 0 #9f1239; height: 50px; }
   </style>
@@ -33,11 +33,14 @@
   <input type="password" id="apiKey" placeholder="Gemini API Key" />
   <button onclick="togglePause()" id="pauseBtn" class="head-btn">⏸ 停止</button>
   <button onclick="toggleBGM()" id="bgmToggle" class="head-btn">🎵 BGM: ON</button>
-  <div class="score-area"><div class="score-val" id="scoreDisplay">0</div></div>
+  <div class="score-area">
+    <div id="speedLabel" style="font-size: 8px; color: #94a3b8; text-align: center;">SPD: 1.0x</div>
+    <div class="score-val" id="scoreDisplay">0</div>
+  </div>
 </div>
 
 <div class="info-area">
-  <div class="log-box" id="logBox"><div style="color: #64748b;">どこかをタップして開始！</div></div>
+  <div class="log-box" id="logBox"><div style="color: #64748b;">画面をタップして開始！スピードは徐々に上がります。</div></div>
   <div class="photo-frame"><img id="wordImage" style="display:none;"></div>
 </div>
 
@@ -65,6 +68,13 @@
   const chars = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん";
   let board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
   let currentPiece = null, score = 0, audioCtx = null, isBgmOn = true, bgmInterval = null, isPaused = false;
+  
+  // スピード管理用
+  let gameSpeed = 1000; 
+  const minSpeed = 200; 
+  const speedStep = 10; 
+  let gameTimer = null;
+
   const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
   const apiKeyInput = document.getElementById('apiKey');
   apiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
@@ -78,6 +88,7 @@
   window.addEventListener('touchstart', function() {
     initAudio();
     if (isBgmOn && !bgmInterval) startBGM();
+    if (!gameTimer) startGameLoop(); // タイマー開始
   }, { once: true });
 
   function spawnPiece() {
@@ -85,7 +96,7 @@
     if (board[0][2]) {
       playSound('fail'); alert("GAME OVER!");
       board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-      score = 0; updateScoreDisplay();
+      score = 0; gameSpeed = 1000; updateScoreDisplay();
     }
   }
 
@@ -106,10 +117,28 @@
     ctx.fillText(char, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + BLOCK_SIZE/2);
   }
 
+  // ループ関数をsetTimeoutに変更（スピードを可変にするため）
+  function startGameLoop() {
+    if (gameTimer) clearTimeout(gameTimer);
+    gameTimer = setTimeout(() => {
+      update();
+      startGameLoop();
+    }, gameSpeed);
+  }
+
   function update() {
     if (isPaused || !currentPiece) return;
-    if (canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++;
-    else { board[currentPiece.y][currentPiece.x] = currentPiece.char; spawnPiece(); }
+    if (canMove(currentPiece.x, currentPiece.y + 1)) {
+      currentPiece.y++;
+    } else {
+      board[currentPiece.y][currentPiece.x] = currentPiece.char;
+      // スピードアップ
+      if (gameSpeed > minSpeed) {
+        gameSpeed -= speedStep;
+        document.getElementById('speedLabel').textContent = `SPD: ${(1000 / gameSpeed).toFixed(1)}x`;
+      }
+      spawnPiece();
+    }
     draw();
   }
 
@@ -129,15 +158,13 @@
   function moveRight() { if (canMove(currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playSound('move'); draw(); } }
   function dropFast() { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); playSound('move'); }
 
-  // --- 【新機能】全ての組み合わせ（部分文字列）を抽出する ---
   function extractAllSubstrings(line) {
     let result = [];
-    let segments = line.split(' '); // 空白で区切られた塊（連続した文字）
+    let segments = line.split(' ');
     segments.forEach(seg => {
       if (seg.length < 2) return;
-      // 連続した塊の中から、2文字以上の全ての組み合わせを抜き出す
-      for (let start = 0; rIdx = seg.length, start < rIdx; start++) {
-        for (let end = start + 2; end <= rIdx; end++) {
+      for (let start = 0; start < seg.length; start++) {
+        for (let end = start + 2; end <= seg.length; end++) {
           result.push(seg.substring(start, end));
         }
       }
@@ -153,32 +180,30 @@
     const judgeBtn = document.getElementById('judgeBtn'), statusMsg = document.getElementById('statusMsg');
     judgeBtn.disabled = true;
 
-    // 縦横の全パターン抽出
     let candidates = [];
-    for (let r = 0; r < ROWS; r++) {
-      let rowStr = board[r].map(c => c || ' ').join('');
-      candidates.push(...extractAllSubstrings(rowStr));
-    }
+    for (let r = 0; r < ROWS; r++) candidates.push(...extractAllSubstrings(board[r].map(c => c || ' ').join('')));
     for (let c = 0; c < COLS; c++) {
-      let colStr = "";
-      for (let r = 0; r < ROWS; r++) colStr += (board[r][c] || ' ');
+      let colStr = ""; for (let r = 0; r < ROWS; r++) colStr += (board[r][c] || ' ');
       candidates.push(...extractAllSubstrings(colStr));
     }
-
-    candidates = [...new Set(candidates)]; // 重複削除
-    if (candidates.length === 0) { playSound('fail'); statusMsg.textContent = "2文字以上並んでいません"; judgeBtn.disabled = false; return; }
+    candidates = [...new Set(candidates)];
+    if (candidates.length === 0) { playSound('fail'); statusMsg.textContent = "並んでいません"; judgeBtn.disabled = false; return; }
 
     try {
       statusMsg.style.color = "#38bdf8"; statusMsg.textContent = "AI判定中...";
-      // モデル探査ロジック
       const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const mData = await mRes.json();
       const models = mData.models.filter(m => m.supportedGenerationMethods.includes("generateContent")).sort((a,b)=>b.name.localeCompare(a.name));
       const targetModel = localStorage.getItem('last_working_word_model') || models[0].name;
 
-      const prompt = `日本語単語判定。以下のリストから実在する一般的な日本語の単語（名詞、動詞、形容詞など）を全て見つけ、JSONで返してください。部分的な一致も重要です。
+      // AI判定を厳格にするプロンプト
+      const prompt = `日本語単語パズル判定。リストから【実在する一般的な単語（名詞、動詞終止符など）】を厳格に抽出。
+条件：
+1. 「は」「が」「を」などの助詞、単なる音の並び、不自然な断片は【厳禁】。
+2. 2文字単語は非常に一般的で意味が明確なもののみ許可（例：「いか」「かさ」はOK）。
+3. 3文字以上を優先。
 リスト: ${JSON.stringify(candidates)}
-形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "解説", "photo_en": "Prompt"}]}`;
+形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "意味", "photo_en": "Prompt"}]}`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
@@ -192,7 +217,6 @@
         if (result.valid_words && result.valid_words.length > 0) {
           playSound('success');
           statusMsg.style.color = "#4ade80"; statusMsg.textContent = "発見！";
-          // 長い単語から消さないと、短い単語に盤面が壊されるのでソート
           result.valid_words.sort((a, b) => b.word.length - a.word.length).forEach(w => {
             addLog(w.word, w.score, w.comment); score += w.score;
             eraseWord(w.word); if (w.photo_en) showImage(w.photo_en);
@@ -200,7 +224,7 @@
           applyGravity(); updateScoreDisplay(); localStorage.setItem('last_working_word_model', targetModel);
         } else {
           playSound('fail'); statusMsg.style.color = "#e11d48"; statusMsg.textContent = "該当なし";
-          addLog("該当なし", 0, "有効な単語なし");
+          addLog("不採用", 0, "有効な単語なし");
         }
       }
     } catch (err) { console.error(err); }
@@ -214,8 +238,7 @@
       if(idx !== -1) for(let i=0; i<word.length; i++) board[r][idx + i] = null;
     }
     for (let c = 0; c < COLS; c++) {
-      let colStr = "";
-      for (let r = 0; r < ROWS; r++) colStr += (board[r][c] || ' ');
+      let colStr = ""; for (let r = 0; r < ROWS; r++) colStr += (board[r][c] || ' ');
       let idx = colStr.indexOf(word);
       if(idx !== -1) for(let i=0; i<word.length; i++) board[idx + i][c] = null;
     }
@@ -240,7 +263,8 @@
   }
   function showImage(p) {
     const img = document.getElementById('wordImage');
-    img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + ", cute 3D emoji") }?width=200&height=200&nologo=true`;
+    const finalPrompt = encodeURIComponent(p + ", cute 3D emoji style, neon lighting");
+    img.src = `https://image.pollinations.ai/prompt/${finalPrompt}?width=200&height=200&nologo=true`;
     img.style.display = 'block';
   }
 
@@ -269,9 +293,10 @@
       if(!isBgmOn || isPaused) return;
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.connect(g); g.connect(audioCtx.destination); o.type='triangle';
+      // スピードに合わせてBGMの間隔を少し変える演出は複雑なため、音階をランダムに
       o.frequency.value=[261,329,392][Math.floor(Math.random()*3)]; g.gain.value=0.008;
       o.start(); o.stop(audioCtx.currentTime+0.2);
-    }, 300);
+    }, gameSpeed / 3); // BGMの間隔も落下速度に連動して早くなる！
   }
 
   function toggleBGM() {
@@ -283,7 +308,7 @@
   }
 
   spawnPiece();
-  setInterval(update, 1000);
+  draw();
 </script>
 </body>
 </html>
