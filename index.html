@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>🔤 AIワードパズル Pro</title>
   <style>
-    /* 連打ズーム防止とスクロール抑制 */
+    /* iPhoneのあらゆる自動操作（ズーム・スクロール）を禁止 */
     * { 
       box-sizing: border-box; 
       touch-action: none; 
@@ -21,7 +21,7 @@
       overscroll-behavior: none;
     }
 
-    /* 1. ヘッダー */
+    /* ヘッダー */
     .header { 
       padding: 10px; background: #1e293b; 
       display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -31,11 +31,12 @@
       flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #475569; 
       background: #0f172a; color: white; font-size: 11px; touch-action: auto;
     }
+    .score-area { text-align: right; min-width: 50px; }
     .score-val { font-size: 18px; font-weight: bold; color: #38bdf8; }
 
-    /* 2. 情報エリア */
+    /* 情報エリア */
     .info-area {
-      display: flex; gap: 8px; padding: 8px; background: #0f172a; height: 80px;
+      display: flex; gap: 8px; padding: 8px; background: #0f172a; height: 85px;
     }
     .log-box { 
       flex: 1; background: #1e293b; border-radius: 8px; padding: 6px; 
@@ -43,12 +44,12 @@
       touch-action: pan-y;
     }
     .photo-frame { 
-      width: 64px; height: 64px; background: #000; border-radius: 8px; 
+      width: 68px; height: 68px; background: #000; border-radius: 8px; 
       border: 1px solid #38bdf8; overflow: hidden; flex-shrink: 0;
     }
     #wordImage { width: 100%; height: 100%; object-fit: cover; }
 
-    /* 3. ゲーム盤面 */
+    /* ゲーム盤面 */
     .game-main { 
       flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
       padding: 5px; position: relative;
@@ -57,11 +58,11 @@
       background: #000; border: 2px solid #38bdf8; border-radius: 8px;
       max-height: 100%; width: auto; aspect-ratio: 6 / 10;
     }
-    #statusMsg { font-size: 12px; font-weight: bold; height: 16px; margin-top: 5px; }
+    #statusMsg { font-size: 12px; font-weight: bold; height: 18px; margin-top: 5px; }
 
-    /* 4. コントローラー：マークのズレ修正 */
+    /* コントローラー：マークのズレを徹底修正 */
     .controls { 
-      padding: 10px 15px calc(15px + env(safe-area-inset-bottom)); 
+      padding: 10px 15px calc(10px + env(safe-area-inset-bottom)); 
       background: #1e293b; 
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
       border-top: 1px solid #334155;
@@ -70,8 +71,9 @@
       height: 60px; background: #334155; color: white; border: none; 
       border-radius: 12px; font-size: 24px; font-weight: bold; 
       box-shadow: 0 4px 0 #000;
-      /* Flexboxでマークを中央に */
+      /* Flexboxで中身を真ん中に。paddingやline-heightをリセット */
       display: flex; justify-content: center; align-items: center;
+      padding: 0; line-height: 1;
     }
     .btn:active { transform: translateY(2px); box-shadow: none; background: #475569; }
     .btn-judge { 
@@ -80,7 +82,7 @@
     }
   </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
 
 <div class="header">
   <input type="password" id="apiKey" placeholder="Gemini Key" />
@@ -89,7 +91,7 @@
 </div>
 
 <div class="info-area">
-  <div class="log-box" id="logBox"><div style="color: #64748b;">文字を並べて判定しよう！</div></div>
+  <div class="log-box" id="logBox"><div style="color: #64748b;">判定ボタンを押して言葉を消そう！</div></div>
   <div class="photo-frame"><img id="wordImage" style="display:none;"></div>
 </div>
 
@@ -99,13 +101,21 @@
 </div>
 
 <div class="controls">
-  <div class="btn" onpointerdown="moveLeft()"><span>◀</span></div>
-  <div class="btn" onpointerdown="dropFast()"><span>▼</span></div>
-  <div class="btn" onpointerdown="moveRight()"><span>▶</span></div>
+  <div class="btn" onpointerdown="handleMove(event, moveLeft)"><span>◀</span></div>
+  <div class="btn" onpointerdown="handleMove(event, dropFast)"><span>▼</span></div>
+  <div class="btn" onpointerdown="handleMove(event, moveRight)"><span>▶</span></div>
   <button class="btn btn-judge" id="judgeBtn" onclick="checkWords()">💡 並んだ言葉を判定して消去</button>
 </div>
 
 <script>
+  // 🚫 iPhoneのダブルタップズームをJavaScriptで強制禁止
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) { e.preventDefault(); }
+    lastTouchEnd = now;
+  }, false);
+
   const COLS = 6, ROWS = 10, BLOCK_SIZE = 40;
   const chars = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん";
   let board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
@@ -146,13 +156,17 @@
   }
 
   function canMove(nx, ny) { return nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !board[ny][nx]; }
+  function handleMove(e, func) { e.preventDefault(); func(); } // ズーム防止用
   function moveLeft() { if (currentPiece && canMove(currentPiece.x - 1, currentPiece.y)) { currentPiece.x--; playSound('move'); draw(); } }
   function moveRight() { if (currentPiece && canMove(currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playSound('move'); draw(); } }
-  function dropFast() { if (currentPiece) { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); } }
+  function dropFast() { if (currentPiece) { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); playSound('move'); } }
 
   async function checkWords() {
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) return alert("APIキーを入力してください");
+    
+    // 音声を即座に初期化（iPhone対策）
+    initAudio(); 
     const judgeBtn = document.getElementById('judgeBtn'), statusMsg = document.getElementById('statusMsg');
     judgeBtn.disabled = true;
 
@@ -170,8 +184,7 @@
     if (candidates.length === 0) { judgeBtn.disabled = false; return; }
 
     try {
-      statusMsg.style.color = "#38bdf8";
-      statusMsg.textContent = "AI判定中...";
+      statusMsg.style.color = "#38bdf8"; statusMsg.textContent = "AI判定中...";
       const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const mData = await mRes.json();
       const models = mData.models.filter(m => m.supportedGenerationMethods.includes("generateContent")).sort((a,b)=>b.name.localeCompare(a.name));
@@ -191,8 +204,7 @@
         const result = JSON.parse(data.candidates[0].content.parts[0].text);
         if (result.valid_words && result.valid_words.length > 0) {
           playSound('success');
-          statusMsg.style.color = "#4ade80";
-          statusMsg.textContent = "単語を発見！消去します。";
+          statusMsg.style.color = "#4ade80"; statusMsg.textContent = "単語を発見！";
           result.valid_words.forEach(w => {
             addLog(w.word, w.score, w.comment); score += w.score;
             eraseWord(w.word); if (w.photo_en) showImage(w.photo_en);
@@ -200,10 +212,9 @@
           applyGravity(); updateScoreDisplay();
           localStorage.setItem('last_word_model', targetModel);
         } else {
-          // 該当なしの場合
+          // ★ 該当なし：ここで音を鳴らす
           playSound('fail');
-          statusMsg.style.color = "#e11d48";
-          statusMsg.textContent = "該当なしでした...";
+          statusMsg.style.color = "#e11d48"; statusMsg.textContent = "該当なしでした...";
           addLog("該当なし", 0, "有効な単語が見つかりませんでした。");
         }
       }
@@ -238,8 +249,7 @@
 
   function updateScoreDisplay() { document.getElementById('scoreDisplay').textContent = score; }
   function addLog(word, pts, comment) {
-    const box = document.getElementById('logBox');
-    const div = document.createElement('div');
+    const box = document.getElementById('logBox'), div = document.createElement('div');
     div.innerHTML = `<b style="color:${pts > 0 ? '#4ade80' : '#e11d48'};">『${word}』</b> ${pts > 0 ? '+'+pts+'pt' : ''}<br>${comment}`;
     box.prepend(div);
   }
@@ -249,17 +259,24 @@
     img.style.display = 'block';
   }
 
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
   function playSound(t) {
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    initAudio();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
     if(t==='move'){ o.frequency.value=400; g.gain.value=0.05; o.start(); o.stop(now+0.05); }
-    if(t==='fail'){ // ブザー音
-      o.type = 'sawtooth'; o.frequency.setValueAtTime(150, now); 
-      o.frequency.exponentialRampToValueAtTime(100, now + 0.3);
-      g.gain.setValueAtTime(0.1, now); g.gain.linearRampToValueAtTime(0.01, now + 0.3);
-      o.start(); o.stop(now + 0.3);
+    if(t==='fail'){ // 強力なブザー音
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(140, now);
+      o.frequency.linearRampToValueAtTime(100, now + 0.4);
+      g.gain.setValueAtTime(0.2, now);
+      g.gain.linearRampToValueAtTime(0.01, now + 0.4);
+      o.start(); o.stop(now + 0.4);
     }
     if(t==='success'){ [523,659,784].forEach((f,i)=>{
       const oo=audioCtx.createOscillator(), gg=audioCtx.createGain();
@@ -269,8 +286,7 @@
   }
 
   function toggleBGM() {
-    if(!audioCtx) audioCtx = new AudioContext();
-    isBgmOn = !isBgmOn;
+    initAudio(); isBgmOn = !isBgmOn;
     document.getElementById('bgmToggle').style.background = isBgmOn ? "#e11d48" : "#334155";
     if(isBgmOn) {
       bgmInterval = setInterval(() => {
