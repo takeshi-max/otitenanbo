@@ -3,11 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>🔤 AIワードパズル Pro Ver.2.0</title>
+  <title>🔤 AIワードパズル Pro Ver.2.1</title>
   <style>
-    * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Segoe UI', sans-serif; background: #090d16; color: white; margin: 0; padding: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
-    
+    * { 
+      box-sizing: border-box; 
+      touch-action: none; 
+      -webkit-user-select: none; 
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { 
+      font-family: 'Segoe UI', sans-serif; 
+      background: #090d16; color: white; 
+      margin: 0; padding: 0; 
+      height: 100dvh; display: flex; flex-direction: column; 
+      overflow: hidden; overscroll-behavior: none;
+    }
+
     /* ヘッダー */
     .header { padding: 10px; background: #1e293b; display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid #38bdf8; }
     input[type="password"] { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 10px; touch-action: auto; }
@@ -31,26 +42,27 @@
     #statusMsg { font-size: 11px; font-weight: bold; height: 18px; margin-top: 5px; text-align: center; }
 
     /* 操作パネル */
-    .controls { padding: 10px 15px calc(15px + env(safe-area-inset-bottom)); background: #1e293b; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border-top: 1px solid #334155; }
+    .controls { padding: 10px 15px calc(10px + env(safe-area-inset-bottom)); background: #1e293b; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border-top: 1px solid #334155; }
     .btn { height: 60px; background: #334155; color: white; border: none; border-radius: 12px; font-size: 28px; font-weight: bold; box-shadow: 0 4px 0 #000; display: flex; justify-content: center; align-items: center; padding: 0; line-height: 1; }
     .btn:active { transform: translateY(2px); box-shadow: none; background: #475569; }
     .btn-judge { grid-column: span 3; background: #e11d48; font-size: 16px; box-shadow: 0 4px 0 #9f1239; height: 50px; }
 
-    /* ゲームオーバー画面（新設） */
+    /* ゲームオーバー画面 */
     #gameOverOverlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.95); z-index: 1000; display: none;
-      flex-direction: column; justify-content: center; align-items: center; padding: 30px;
+      background: rgba(0,0,0,0.96); z-index: 1000; display: none;
+      flex-direction: column; justify-content: center; align-items: center; padding: 20px;
     }
-    .history-list { width: 100%; max-height: 250px; overflow-y: auto; background: #1e293b; border-radius: 12px; padding: 15px; margin: 20px 0; border: 1px solid #334155; touch-action: pan-y; }
-    .history-item { border-bottom: 1px solid #334155; padding: 10px 0; display: flex; justify-content: space-between; font-size: 16px; }
-    .retry-btn { background: #38bdf8; color: black; padding: 18px 50px; border-radius: 50px; font-weight: bold; border: none; font-size: 20px; box-shadow: 0 4px 0 #0369a1; }
-    .retry-btn:active { transform: translateY(2px); box-shadow: none; }
+    .history-list { width: 100%; max-height: 350px; overflow-y: auto; background: #1e293b; border-radius: 12px; padding: 10px; margin: 15px 0; border: 1px solid #334155; touch-action: pan-y; }
+    .history-item { border-bottom: 1px solid #334155; padding: 10px 5px; font-size: 13px; text-align: left; }
+    .history-word { font-weight: bold; color: #4ade80; font-size: 16px; }
+    .history-comment { font-size: 11px; color: #94a3b8; display: block; margin-top: 2px; }
+    .retry-btn { background: #38bdf8; color: black; padding: 18px 60px; border-radius: 50px; font-weight: bold; border: none; font-size: 20px; box-shadow: 0 4px 0 #0369a1; }
   </style>
 </head>
 <body oncontextmenu="return false;">
 
-<div class="ver-tag">APP Ver. 2.0 (Survival Mode)</div>
+<div class="ver-tag">Ver. 2.1 (Strict Mode)</div>
 
 <div class="header">
   <input type="password" id="apiKey" placeholder="Gemini API Key" />
@@ -63,7 +75,7 @@
 </div>
 
 <div class="info-area">
-  <div class="log-box" id="logBox"><div style="color: #38bdf8;">画面をタップして開始！<br>0点になるか、上まで積まれると終了！</div></div>
+  <div class="log-box" id="logBox"><div style="color: #38bdf8;">タップして開始。実在する単語を厳格に判定します。</div></div>
   <div class="photo-frame"><img id="wordImage" style="display:none;"></div>
 </div>
 
@@ -79,17 +91,16 @@
   <button class="btn btn-judge" id="judgeBtn" onclick="checkWords()">💡 並んだ言葉を判定して消去</button>
 </div>
 
-<!-- 新設：ゲームオーバー画面 -->
+<!-- ゲームオーバー画面 -->
 <div id="gameOverOverlay">
-  <h2 style="color:#ff4d4d; font-size: 40px; margin:0; text-shadow: 0 0 10px rgba(255,0,0,0.5);">GAME OVER</h2>
-  <div id="finalScore" style="font-size: 24px; margin: 15px 0; color:#38bdf8; font-weight:bold;">Score: 0</div>
-  <div style="font-size: 14px; color:#94a3b8; margin-top:10px;">今回の単語履歴:</div>
+  <h2 style="color:#ff4d4d; font-size: 32px; margin:0;">GAME OVER</h2>
+  <div id="finalScore" style="font-size: 22px; margin: 5px 0; color:#38bdf8;">Score: 0</div>
+  <div style="font-size: 12px; color:#94a3b8;">今回消した言葉の記録：</div>
   <div class="history-list" id="historyList"></div>
   <button class="retry-btn" onclick="resetGame()">RETRY</button>
 </div>
 
 <script>
-  // 🚫 iPhone連打ズーム強制無効化
   let lastTouchEnd = 0;
   document.addEventListener('touchend', (e) => {
     const now = (new Date()).getTime();
@@ -102,7 +113,7 @@
   let board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
   let currentPiece = null, score = 100, audioCtx = null, isBgmOn = true, bgmInterval = null, isPaused = false;
   let gameSpeed = 1000, gameTimer = null;
-  let wordHistory = []; // 消した単語の履歴
+  let wordHistory = []; // 消した単語の詳細履歴
 
   const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
   const apiKeyInput = document.getElementById('apiKey');
@@ -153,46 +164,41 @@
       currentPiece.y++;
     } else {
       board[currentPiece.y][currentPiece.x] = currentPiece.char;
-      if (gameSpeed > 200) gameSpeed -= 10;
+      if (gameSpeed > 200) gameSpeed -= 8;
       document.getElementById('speedLabel').textContent = `SPD: ${(1000 / gameSpeed).toFixed(1)}x`;
       spawnPiece();
     }
     draw();
   }
 
-  // スコア更新ロジック（0点判定・色変更）
   function updateScore(pts) {
     score += pts;
-    if (score <= 0) {
-      score = 0;
-      document.getElementById('scoreDisplay').textContent = score;
-      triggerGameOver();
-    } else {
-      document.getElementById('scoreDisplay').textContent = score;
-      // 減点時は一瞬赤くする演出
-      if (pts < 0) {
-        document.getElementById('scoreDisplay').style.color = "#ff4d4d";
-        setTimeout(() => document.getElementById('scoreDisplay').style.color = "#38bdf8", 500);
-      }
-    }
+    if (score <= 0) { score = 0; triggerGameOver(); }
+    document.getElementById('scoreDisplay').textContent = score;
   }
 
-  // ゲームオーバー発動
   function triggerGameOver() {
     isPaused = true;
     playSound('fail');
     document.getElementById('finalScore').textContent = "Score: " + score;
     const list = document.getElementById('historyList');
-    list.innerHTML = wordHistory.length ? "" : "<div style='text-align:center; color:#64748b; padding-top:20px;'>消した単語はありませんでした</div>";
-    
-    // 履歴を新しい順に表示
-    [...wordHistory].reverse().forEach(w => {
-      const item = document.createElement('div');
-      item.className = "history-item";
-      item.innerHTML = `<span>${w.word}</span><span style="color:#4ade80;">+${w.pts}pt</span>`;
-      list.appendChild(item);
-    });
-    
+    list.innerHTML = "";
+    if (wordHistory.length === 0) {
+      list.innerHTML = "<div style='color:#64748b; padding:20px;'>単語を消せませんでした...</div>";
+    } else {
+      [...wordHistory].reverse().forEach(w => {
+        const item = document.createElement('div');
+        item.className = "history-item";
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="history-word">『${w.word}』</span>
+            <span style="color:#38bdf8; font-weight:bold;">+${w.pts}pt</span>
+          </div>
+          <span class="history-comment">${w.comment}</span>
+        `;
+        list.appendChild(item);
+      });
+    }
     document.getElementById('gameOverOverlay').style.display = "flex";
     if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; }
   }
@@ -203,13 +209,12 @@
     document.getElementById('gameOverOverlay').style.display = "none";
     document.getElementById('scoreDisplay').textContent = score;
     document.getElementById('speedLabel').textContent = "SPD: 1.0x";
-    document.getElementById('logBox').innerHTML = '<div style="color: #38bdf8;">再挑戦スタート！</div>';
     if(isBgmOn) startBGM();
     spawnPiece(); draw();
   }
 
   function canMove(nx, ny) { return nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !board[ny][nx]; }
-  function handleTouch(e, func) { if(e) e.preventDefault(); if(isPaused) return; initAudio(); func(); }
+  function handleTouch(e, actionFunc) { if(e) e.preventDefault(); if(isPaused) return; initAudio(); actionFunc(); }
   function moveLeft() { if (canMove(currentPiece.x - 1, currentPiece.y)) { currentPiece.x--; playSound('move'); draw(); } }
   function moveRight() { if (canMove(currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playSound('move'); draw(); } }
   function dropFast() { while(canMove(currentPiece.x, currentPiece.y + 1)) currentPiece.y++; update(); playSound('move'); }
@@ -242,7 +247,7 @@
       candidates.push(...extractAllSubstrings(colStr));
     }
     candidates = [...new Set(candidates)];
-    if (candidates.length === 0) { playSound('fail'); statusMsg.textContent = "並んでいません"; judgeBtn.disabled = false; return; }
+    if (candidates.length === 0) { playSound('fail'); statusMsg.textContent = "文字が並んでいません"; judgeBtn.disabled = false; return; }
 
     try {
       statusMsg.style.color = "#38bdf8"; statusMsg.textContent = "AI判定中...";
@@ -251,7 +256,14 @@
       const models = mData.models.filter(m => m.supportedGenerationMethods.includes("generateContent")).sort((a,b)=>b.name.localeCompare(a.name));
       const targetModel = localStorage.getItem('last_working_word_model') || models[0].name;
 
-      const prompt = `日本語単語パズル。リストから実在する単語（2文字以上、一般的、助詞のみ不可）のみ厳格に抽出しJSONで返せ。リスト: ${JSON.stringify(candidates)} 形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "意味", "photo_en": "Prompt"}]}`;
+      // 判定基準をさらに厳格化
+      const prompt = `日本語判定。実在する単語（名詞、動詞、形容詞など、辞書に載っている言葉）のみを抽出。
+厳守事項：
+1. 「は、が、の、に、を、も」等の助詞のみ、単なる音の断片、偶然並んだ意味不明な文字は【不採用】。
+2. 2文字単語は非常に一般的で誰もが知る名詞に限定。
+3. 3文字以上を高く評価。
+リスト: ${JSON.stringify(candidates)}
+形式: {"valid_words": [{"word": "単語", "score": 100, "comment": "意味を15文字以内で", "photo_en": "Prompt"}]}`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
@@ -265,20 +277,20 @@
         
         if (result.valid_words && result.valid_words.length > 0) {
           playSound('success');
-          statusMsg.style.color = "#4ade80"; statusMsg.textContent = "発見！";
+          statusMsg.style.color = "#4ade80"; statusMsg.textContent = "単語を発見！";
           result.valid_words.sort((a,b)=>b.word.length - a.word.length).forEach(w => {
             addLog(w.word, w.score, w.comment);
-            updateScore(w.score); // スコア加算
-            wordHistory.push({word: w.word, pts: w.score}); // 履歴保存
+            updateScore(w.score);
+            wordHistory.push({word: w.word, pts: w.score, comment: w.comment}); 
             eraseWord(w.word); if (w.photo_en) showImage(w.photo_en);
           });
           applyGravity(); localStorage.setItem('last_working_word_model', targetModel);
         } else {
           playSound('fail');
-          updateScore(-50); // ★ペナルティ：該当なしは-50点
+          updateScore(-50);
           statusMsg.style.color = "#ff4d4d";
           statusMsg.textContent = "該当なし (-50pt)";
-          addLog("該当なし", -50, "お手付きペナルティが発生しました");
+          addLog("不採用", -50, "単語として認められません");
         }
       }
     } catch (err) { console.error(err); }
@@ -325,18 +337,17 @@
     initAudio();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
-    const now = audioCtx.currentTime;
-    if(t==='move'){ o.frequency.value=400; g.gain.value=0.02; o.start(); o.stop(now+0.05); }
+    if(t==='move'){ o.frequency.value=400; g.gain.value=0.02; o.start(); o.stop(audioCtx.currentTime+0.05); }
     if(t==='fail'){
-      o.type='sawtooth'; o.frequency.setValueAtTime(140, now);
-      o.frequency.linearRampToValueAtTime(100, now + 0.4);
-      g.gain.setValueAtTime(0.1, now); g.gain.linearRampToValueAtTime(0.01, now + 0.4);
-      o.start(); o.stop(now + 0.4);
+      o.type='sawtooth'; o.frequency.setValueAtTime(140, audioCtx.currentTime);
+      o.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.4);
+      g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      o.start(); o.stop(audioCtx.currentTime + 0.4);
     }
     if(t==='success'){ [523,659,784].forEach((f,i)=>{
       const oo=audioCtx.createOscillator(), gg=audioCtx.createGain();
       oo.connect(gg); gg.connect(audioCtx.destination); oo.frequency.value=f;
-      gg.gain.setValueAtTime(0.05, now+i*0.1); oo.start(now+i*0.1); oo.stop(now+i*0.1+0.2);
+      gg.gain.setValueAtTime(0.05, audioCtx.currentTime+i*0.1); oo.start(audioCtx.currentTime+i*0.1); oo.stop(audioCtx.currentTime+i*0.1+0.2);
     });}
   }
 
@@ -357,6 +368,16 @@
     document.getElementById('bgmToggle').textContent = isBgmOn ? "🎵 BGM: ON" : "🎵 BGM: OFF";
     if(isBgmOn && !bgmInterval && !isPaused) startBGM();
     else if(!isBgmOn && bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; }
+  }
+
+  function togglePause() {
+    isPaused = !isPaused;
+    const btn = document.getElementById('pauseBtn');
+    btn.textContent = isPaused ? "▶ 再開" : "⏸ 停止";
+    btn.style.background = isPaused ? "#10b981" : "#334155";
+    if (isPaused) { if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; } }
+    else if (isBgmOn) startBGM();
+    draw();
   }
 
   spawnPiece();
